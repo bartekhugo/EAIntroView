@@ -25,10 +25,10 @@ typedef void (^VoidBlock)();
 // all items from subviews array will be added on page
 
 /**
-* The title view that is presented above the title label.
-* The view can be a normal UIImageView or any other kind uf
-* UIView. This allows to attach animated views as well.
-*/
+ * The title view that is presented above the title label.
+ * The view can be a normal UIImageView or any other kind uf
+ * UIView. This allows to attach animated views as well.
+ */
 @property (nonatomic, strong) UIView * titleIconView;
 
 @property (nonatomic, assign) CGFloat titleIconPositionY;
@@ -54,6 +54,9 @@ typedef void (^VoidBlock)();
 
 // if customView is set - all other default properties are ignored
 @property (nonatomic, strong) UIView *customView;
+
+@property (nonatomic, strong) UIView *animatedView;
+@property (nonatomic, assign) CGPoint animatedViewOffset;
 
 @property(nonatomic, strong, readonly) UIView *pageView;
 

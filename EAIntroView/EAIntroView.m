@@ -10,6 +10,8 @@
 @property (nonatomic, strong) UIImageView *bgImageView;
 @property (nonatomic, strong) UIImageView *pageBgBack;
 @property (nonatomic, strong) UIImageView *pageBgFront;
+@property (nonatomic, strong) UIView *pageAniamtedViewBack;
+@property (nonatomic, strong) UIView *pageAnimatedViewFront;
 
 @property(nonatomic, strong) NSMutableArray *footerConstraints;
 @property(nonatomic, strong) NSMutableArray *titleViewConstraints;
@@ -76,6 +78,8 @@
     
     self.pages = [pagesArray copy];
     
+    [self buildAnimatedView];
+    
     [self buildFooterView];
 }
 
@@ -84,6 +88,11 @@
     backgroundImageView.contentMode = self.bgViewContentMode;
     backgroundImageView.autoresizesSubviews = UIViewAutoresizingFlexibleHeight | UIViewAutoresizingFlexibleWidth;
     backgroundImageView.autoresizingMask = UIViewAutoresizingFlexibleHeight | UIViewAutoresizingFlexibleWidth;
+}
+
+- (void)applyDefaultsToAnimatedView:(UIView *)aniamtedView {
+    aniamtedView.autoresizesSubviews = UIViewAutoresizingFlexibleHeight | UIViewAutoresizingFlexibleWidth;
+    aniamtedView.autoresizingMask = UIViewAutoresizingFlexibleHeight | UIViewAutoresizingFlexibleWidth;
 }
 
 - (void)makePanelVisibleAtIndex:(NSUInteger)panelIndex{
@@ -132,6 +141,14 @@
     return [self pageForIndex:idx].bgImage;
 }
 
+- (UIView *)animatedViewForPage:(NSUInteger)idx {
+    return [self pageForIndex:idx].animatedView;
+}
+
+- (CGPoint)animatedViewOffsetForPage:(NSUInteger)idx {
+    return [self pageForIndex:idx].animatedViewOffset;
+}
+
 - (UIColor *)bgColorForPage:(NSUInteger)idx {
     return [self pageForIndex:idx].bgColor;
 }
@@ -158,9 +175,9 @@
 }
 
 - (void)finishIntroductionAndRemoveSelf {
-	if ([(id)self.delegate respondsToSelector:@selector(introDidFinish:)]) {
-		[self.delegate introDidFinish:self];
-	}
+    if ([(id)self.delegate respondsToSelector:@selector(introDidFinish:)]) {
+        [self.delegate introDidFinish:self];
+    }
     
     //prevent last page flicker on disappearing
     self.alpha = 0;
@@ -236,6 +253,27 @@
     return _pageBgFront;
 }
 
+- (UIView *)pageAnimatedViewFront {
+    if (!_pageAnimatedViewFront) {
+        _pageAnimatedViewFront = [[UIView alloc] initWithFrame:self.bounds];
+        [self applyDefaultsToAnimatedView:_pageAnimatedViewFront];
+        _pageAnimatedViewFront.userInteractionEnabled = NO;
+        _pageAnimatedViewFront.alpha = 0;
+    }
+    return _pageAnimatedViewFront;
+}
+
+- (UIView *)pageAniamtedViewBack {
+    if (!_pageAniamtedViewBack) {
+        _pageAniamtedViewBack = [[UIView alloc] initWithFrame:self.bounds];
+        [self applyDefaultsToAnimatedView:_pageAniamtedViewBack];
+        _pageAniamtedViewBack.userInteractionEnabled = NO;
+        _pageAniamtedViewBack.alpha = 0;
+    }
+    return _pageAniamtedViewBack;
+}
+
+
 - (UIPageControl *)pageControl {
     if (!_pageControl) {
         _pageControl = [[UIPageControl alloc] init];
@@ -291,6 +329,11 @@
     }
 }
 
+- (void)buildAnimatedView {
+    [self insertSubview:self.pageAniamtedViewBack aboveSubview:self.scrollView];
+    [self insertSubview:self.pageAnimatedViewFront aboveSubview:self.scrollView];
+}
+
 - (void)buildScrollView {
     CGFloat contentXIndex = 0;
     for (NSUInteger idx = 0; idx < _pages.count; idx++) {
@@ -316,7 +359,37 @@
     self.pageBgFront.alpha = [self alphaForPageIndex:0];
     self.pageBgFront.image = [self bgImageForPage:0];
     self.pageBgFront.backgroundColor = [self bgColorForPage:0];
+    
+    self.pageAniamtedViewBack.alpha  = 0;
+    self.pageAnimatedViewFront.alpha = 1.0;
+    [self setAnimatedViewForBackAniamtedView:[self animatedViewForPage:1]];
+    [self setAnimatedViewForFrontAniamtedView:[self animatedViewForPage:0]];
 }
+
+- (void)setAnimatedViewForBackAniamtedView:(UIView *)view {
+    NSArray *viewsToRemove = [self.pageAniamtedViewBack subviews];
+    for (UIView *v in viewsToRemove) {
+        [v removeFromSuperview];
+    }
+    
+    if (view) {
+        view.frame = self.pageAniamtedViewBack.bounds;
+        [self.pageAniamtedViewBack addSubview:view];
+    }
+}
+
+- (void)setAnimatedViewForFrontAniamtedView:(UIView *)view {
+    NSArray *viewsToRemove = [self.pageAnimatedViewFront subviews];
+    for (UIView *v in viewsToRemove) {
+        [v removeFromSuperview];
+    }
+    
+    if (view) {
+        view.frame = self.pageAnimatedViewFront.bounds;
+        [self.pageAnimatedViewFront addSubview:view];
+    }
+}
+
 
 - (UIView *)viewForPage:(EAIntroPage *)page atXIndex:(CGFloat)xIndex {
     UIView *pageView = [[UIView alloc] initWithFrame:CGRectMake(xIndex, 0, self.scrollView.frame.size.width, self.scrollView.frame.size.height)];
@@ -521,7 +594,6 @@
         if([self pageForIndex:page]) {
             self.alpha = 1.f;
         }
-        
         [self crossDissolveForOffset:offset];
     }
     
@@ -537,12 +609,17 @@ CGFloat easeOutValue(CGFloat value) {
     return (CGFloat) (1.f + inverse * inverse * inverse);
 }
 
+CGFloat remap(CGFloat x, CGFloat outMin, CGFloat outMax, CGFloat inMin, CGFloat inMax){
+    return outMin + (outMax - outMin) * (x - inMin) / (inMax - inMin);
+}
+
 - (void)crossDissolveForOffset:(CGFloat)offset {
     NSUInteger page = (NSUInteger)(offset);
     CGFloat alphaValue = offset - page;
     
     if (alphaValue < 0 && self.visiblePageIndex == 0){
         self.pageBgBack.image = nil;
+        [self setAnimatedViewForBackAniamtedView:nil];
         return;
     }
     
@@ -553,16 +630,52 @@ CGFloat easeOutValue(CGFloat value) {
     self.pageBgBack.image = [self bgImageForPage:page+1];
     self.pageBgBack.backgroundColor = [self bgColorForPage:page+1];
     
+    self.pageAniamtedViewBack.alpha  = 0;
+    self.pageAnimatedViewFront.alpha = 1.0;
+    [self setAnimatedViewForFrontAniamtedView:[self animatedViewForPage:page]];
+    [self setAnimatedViewForBackAniamtedView:[self animatedViewForPage:page+1]];
+    
     CGFloat backLayerAlpha = alphaValue;
     CGFloat frontLayerAlpha = (1 - alphaValue);
+    
+    if (self.currentPageIndex > page)
+    {
+        CGPoint animatedViewOffset = [self animatedViewOffsetForPage:page];
+        
+        CGFloat remapedValueBack  = remap(backLayerAlpha, -2, 1, 0, 1);
+        CGFloat remapedValueFront = remap(frontLayerAlpha, -2, 1, 0, 1);
+        
+        self.pageAniamtedViewBack.alpha  = MAX(0, remapedValueBack);
+        self.pageAnimatedViewFront.alpha = MAX(0, remapedValueFront);
+        
+        CGFloat multiplier = 1 -self.pageAnimatedViewFront.alpha;
+        
+        self.pageAniamtedViewBack.frame  = self.bounds;
+        self.pageAnimatedViewFront.frame = CGRectOffset(self.bounds, animatedViewOffset.x * multiplier, animatedViewOffset.y * multiplier);
+    }
+    else {
+        CGPoint animatedViewOffset = [self animatedViewOffsetForPage:page+1];
+        
+        CGFloat remapedValueBack  = remap(backLayerAlpha, -2, 1, 0, 1);
+        CGFloat remapedValueFront = remap(frontLayerAlpha, -2, 1, 0, 1);
+        
+        self.pageAniamtedViewBack.alpha  = MAX(0, remapedValueBack);
+        self.pageAnimatedViewFront.alpha = MAX(0, remapedValueFront);
+        
+        CGFloat multiplier = 1 -self.pageAniamtedViewBack.alpha;
+        
+        self.pageAniamtedViewBack.frame  = CGRectOffset(self.bounds, animatedViewOffset.x * multiplier, animatedViewOffset.y * multiplier);
+        self.pageAnimatedViewFront.frame = self.bounds;
+    }
     
     if (self.easeOutCrossDisolves) {
         backLayerAlpha = easeOutValue(backLayerAlpha);
         frontLayerAlpha = easeOutValue(frontLayerAlpha);
     }
     
-    self.pageBgBack.alpha = MIN(backLayerAlpha,[self alphaForPageIndex:page+1]);
+    self.pageBgBack.alpha  = MIN(backLayerAlpha,[self alphaForPageIndex:page+1]);
     self.pageBgFront.alpha = MIN(frontLayerAlpha,[self alphaForPageIndex:page]);
+    
     
     if(self.titleView) {
         if([self showTitleViewForPage:page] && [self showTitleViewForPage:page+1]) {
@@ -835,13 +948,13 @@ CGFloat easeOutValue(CGFloat value) {
     
     self.currentPageIndex = initialPageIndex;
     self.alpha = 0;
-
+    
     if(self.superview != view) {
         [view addSubview:self];
     } else {
         [view bringSubviewToFront:self];
     }
-   
+    
     [UIView animateWithDuration:duration animations:^{
         self.alpha = 1;
     } completion:^(BOOL finished) {
@@ -858,8 +971,8 @@ CGFloat easeOutValue(CGFloat value) {
     [UIView animateWithDuration:duration animations:^{
         self.alpha = 0;
     } completion:^(BOOL finished){
-		[self finishIntroductionAndRemoveSelf];
-	}];
+        [self finishIntroductionAndRemoveSelf];
+    }];
 }
 
 - (void)setCurrentPageIndex:(NSUInteger)currentPageIndex {
