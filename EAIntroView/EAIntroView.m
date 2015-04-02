@@ -153,6 +153,10 @@
     return [self pageForIndex:idx].bgColor;
 }
 
+- (BOOL)hidePageControlForPageAtIndex:(NSUInteger)idx {
+    return [self pageForIndex:idx].hidePageControl;
+}
+
 - (void)showPanelAtPageControl {
     [self makePanelVisibleAtIndex:self.currentPageIndex];
     
@@ -638,6 +642,7 @@ CGFloat remap(CGFloat x, CGFloat outMin, CGFloat outMax, CGFloat inMin, CGFloat 
     CGFloat backLayerAlpha = alphaValue;
     CGFloat frontLayerAlpha = (1 - alphaValue);
     
+    // swiping right
     if (self.currentPageIndex > page)
     {
         CGPoint animatedViewOffset = [self animatedViewOffsetForPage:page];
@@ -652,7 +657,9 @@ CGFloat remap(CGFloat x, CGFloat outMin, CGFloat outMax, CGFloat inMin, CGFloat 
         
         self.pageAniamtedViewBack.frame  = self.bounds;
         self.pageAnimatedViewFront.frame = CGRectOffset(self.bounds, animatedViewOffset.x * multiplier, animatedViewOffset.y * multiplier);
+        
     }
+    // swiping left
     else {
         CGPoint animatedViewOffset = [self animatedViewOffsetForPage:page+1];
         
@@ -688,6 +695,17 @@ CGFloat remap(CGFloat x, CGFloat outMin, CGFloat outMax, CGFloat inMin, CGFloat 
             [self.titleView setAlpha:alphaValue];
         }
     }
+    
+    if(![self hidePageControlForPageAtIndex:page] && ![self hidePageControlForPageAtIndex:page+1]) {
+        [self.pageControl setAlpha:1.0];
+    } else if([self hidePageControlForPageAtIndex:page] && [self hidePageControlForPageAtIndex:page+1]) {
+        [self.pageControl setAlpha:0.0];
+    } else if(![self hidePageControlForPageAtIndex:page]) {
+        [self.pageControl setAlpha:(1 - alphaValue)];
+    } else {
+        [self.pageControl setAlpha:alphaValue];
+    }
+    
     
     if(self.skipButton && self.showSkipButtonOnlyOnLastPage) {
         if(page < (long)[self.pages count] - 2) {

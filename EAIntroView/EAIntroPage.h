@@ -47,6 +47,8 @@ typedef void (^VoidBlock)();
 
 @property (nonatomic, assign) CGFloat alpha;
 
+@property (nonatomic, assign) BOOL hidePageControl;
+
 @property (nonatomic,copy) VoidBlock onPageDidLoad;
 @property (nonatomic,copy) VoidBlock onPageDidAppear;
 @property (nonatomic,copy) VoidBlock onPageDidDisappear;
