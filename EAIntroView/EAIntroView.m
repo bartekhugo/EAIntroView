@@ -397,6 +397,7 @@
 
 - (UIView *)viewForPage:(EAIntroPage *)page atXIndex:(CGFloat)xIndex {
     UIView *pageView = [[UIView alloc] initWithFrame:CGRectMake(xIndex, 0, self.scrollView.frame.size.width, self.scrollView.frame.size.height)];
+    pageView.clipsToBounds = YES;
     
     if(page.customView) {
         page.customView.frame = pageView.bounds;
